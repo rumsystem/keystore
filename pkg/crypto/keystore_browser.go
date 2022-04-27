@@ -368,3 +368,13 @@ func (ks *BrowserKeystore) GetUnlockedKey(keyname string) (interface{}, error) {
 
 	return nil, fmt.Errorf("key %s not exist or not be unlocked", keyname)
 }
+
+func (ks *BrowserKeystore) RemoveKeyPairByKeyName(keyname string, keytype KeyType) (err error) {
+	return nil
+}
+func (ks *BrowserKeystore) RemoveKey(keyname string, keytype KeyType) (err error) {
+	return nil
+}
+func (ks *BrowserKeystore) ListAll() (keys []KeyItem, err error) {
+	return nil, nil
+}

@@ -3,7 +3,6 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"fmt"
-
 	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
 )
@@ -49,6 +48,10 @@ func (kt KeyType) NameString(keyname string) string {
 	return ""
 }
 
+type KeyItem struct {
+	Keyname string
+	Type    KeyType
+}
 type Keystore interface {
 	Unlock(signkeymap map[string]string, password string) error
 	Lock() error
@@ -63,4 +66,8 @@ type Keystore interface {
 	Decrypt(keyname string, data []byte) ([]byte, error)
 	GetEncodedPubkey(keyname string, keytype KeyType) (string, error)
 	GetPeerInfo(keyname string) (peerid peer.ID, ethaddr string, err error)
+	//must call nodeoptions.DelSignKeyMap(keyname string) to remove the keymap,
+	//afeter call RemoveKey successfully
+	RemoveKey(keyname string, keytype KeyType) (err error)
+	ListAll() (keys []*KeyItem, err error)
 }

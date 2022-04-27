@@ -256,6 +256,11 @@ func (ks *DirKeyStore) StoreEncryptKey(filename string, key *age.X25519Identity,
 	return AgeEncrypt([]age.Recipient{r}, strings.NewReader(key.String()), f)
 }
 
+func (ks *DirKeyStore) DeleteKeyfile(filename string) error {
+	storefilename := JoinKeyStorePath(ks.KeystorePath, filename)
+	return os.Remove(storefilename)
+}
+
 func (ks *DirKeyStore) getKey(addr common.Address, filename, auth string) (*ethkeystore.Key, error) {
 	// Load the key from the keystore and decrypt its contents
 	keyjson, err := ioutil.ReadFile(filename)
@@ -496,4 +501,38 @@ func (ks *DirKeyStore) Decrypt(keyname string, data []byte) ([]byte, error) {
 		return ioutil.ReadAll(r)
 	}
 	return nil, err
+}
+
+func (ks *DirKeyStore) RemoveKey(keyname string, keytype KeyType) (err error) {
+	keyname = keytype.NameString(keyname)
+	exist, err := ks.IfKeyExist(keyname)
+	if err != nil {
+		return err
+	}
+	if exist != true {
+		return fmt.Errorf("Key '%s' not exists", keyname)
+	}
+	ks.DeleteKeyfile(keyname)
+
+	return nil
+}
+func (ks *DirKeyStore) ListAll() (keys []*KeyItem, err error) {
+	files, err := ioutil.ReadDir(ks.KeystorePath)
+	if err != nil {
+		return nil, err
+	}
+	items := []*KeyItem{}
+	for _, f := range files {
+		file := f.Name()
+		if strings.HasPrefix(file, Sign.Prefix()) == true {
+			name := file[len(Sign.Prefix()):]
+			item := &KeyItem{Keyname: name, Type: Sign}
+			items = append(items, item)
+		} else if strings.HasPrefix(file, Encrypt.Prefix()) == true {
+			name := file[len(Encrypt.Prefix()):]
+			item := &KeyItem{Keyname: name, Type: Encrypt}
+			items = append(items, item)
+		}
+	}
+	return items, nil
 }
