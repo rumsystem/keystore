@@ -375,6 +375,7 @@ func (ks *BrowserKeystore) RemoveKeyPairByKeyName(keyname string, keytype KeyTyp
 func (ks *BrowserKeystore) RemoveKey(keyname string, keytype KeyType) (err error) {
 	return nil
 }
-func (ks *BrowserKeystore) ListAll() (keys []KeyItem, err error) {
+
+func (ks *BrowserKeystore) ListAll() (keys []*KeyItem, err error) {
 	return nil, nil
 }
