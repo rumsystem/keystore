@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
 	peer "github.com/libp2p/go-libp2p-core/peer"
+	"github.com/spf13/viper"
 )
 
 type DirKeyStore struct {
@@ -31,7 +32,9 @@ type DirKeyStore struct {
 	password     string
 	unlocked     map[string]interface{} //eth *Key or *X25519Identity, will be upgrade to generics
 	signkeymap   map[string]string
+	keyaliasmap  map[string]string
 	unlockTime   time.Time
+	v            *viper.Viper
 	mu           sync.RWMutex
 }
 
@@ -53,8 +56,46 @@ func InitDirKeyStore(name string, keydir string) (*DirKeyStore, int, error) {
 			signkeycount++
 		}
 	}
-	ks := &DirKeyStore{Name: name, KeystorePath: keydir, unlocked: make(map[string]interface{}), signkeymap: make(map[string]string)}
+	v, keyaliasmap, err := loadAliasmap(keydir)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	ks := &DirKeyStore{Name: name, KeystorePath: keydir, unlocked: make(map[string]interface{}), keyaliasmap: keyaliasmap, signkeymap: make(map[string]string), v: v}
 	return ks, signkeycount, nil
+}
+
+func loadAliasmap(dir string) (*viper.Viper, map[string]string, error) {
+	v, err := initConfigfile(dir)
+	err = v.ReadInConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return v, v.GetStringMapString("SignKeyMap"), nil
+}
+
+func initConfigfile(dir string) (*viper.Viper, error) {
+	v := viper.New()
+	v.SetConfigFile("alias.toml")
+	v.SetConfigName("alias")
+	v.SetConfigType("toml")
+	v.AddConfigPath(dir)
+
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			writeDefaultToconfig(v)
+		} else {
+			return nil, err
+		}
+	}
+
+	return v, nil
+}
+
+func writeDefaultToconfig(v *viper.Viper) error {
+	v.Set("AliasKeyMap", map[string]string{})
+	return v.SafeWriteConfig()
 }
 
 func (ks *DirKeyStore) UnlockedKeyCount(keytype KeyType) int {
@@ -392,8 +433,72 @@ func (ks *DirKeyStore) Import(keyname string, encodedkey string, keytype KeyType
 	return "", nil
 }
 
+func (ks *DirKeyStore) NewAlias(keyalias, keyname, password string) error {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	err := ks.CanAliasKey(keyalias, keyname, password)
+	if err == nil {
+		ks.keyaliasmap[keyalias] = keyname
+		writeToconfig(ks.v, ks.keyaliasmap)
+		return nil
+	}
+	return err
+}
+
+func (ks *DirKeyStore) UnAlias(keyalias, password string) error {
+	ks.mu.Lock()
+	defer ks.mu.Unlock()
+	err := ks.CanUnAliasKey(keyalias, password)
+	if err == nil { //ok can alias
+		delete(ks.keyaliasmap, keyalias)
+		return writeToconfig(ks.v, ks.keyaliasmap)
+	} else {
+		return err
+	}
+}
+
+//check the keyname of an alias, return keyname
+func (ks *DirKeyStore) AliasToKeyname(keyalias string) string {
+	k, ok := ks.keyaliasmap[keyalias]
+	if ok == true {
+		return k
+	}
+	return ""
+}
+
+func writeToconfig(v *viper.Viper, keyaliasmap map[string]string) error {
+	v.Set("AliasKeyMap", keyaliasmap)
+	return v.WriteConfig()
+}
+
+func (ks *DirKeyStore) CanAliasKey(keyalias string, keyname string, password string) error {
+	//TODO: more verify
+	if ks.AliasToKeyname(keyalias) == "" {
+		return nil //ok can mapping
+	}
+	return errors.New("alias exists")
+}
+
+func (ks *DirKeyStore) CanUnAliasKey(keyalias string, password string) error {
+	//TODO: more verify
+	if ks.AliasToKeyname(keyalias) == "" {
+		return errors.New("alias not find")
+	}
+	return nil
+}
+
 func (ks *DirKeyStore) Sign(data []byte, privKey p2pcrypto.PrivKey) ([]byte, error) {
 	return privKey.Sign(data)
+}
+
+func (ks *DirKeyStore) SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
+	keyname := ks.AliasToKeyname(keyalias)
+	if keyname == "" {
+		//alias not exist
+		return nil, fmt.Errorf("The key alias %s is not exist", keyalias)
+	} else {
+		return ks.SignByKeyName(keyname, data, opts...)
+	}
 }
 
 func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
@@ -409,7 +514,6 @@ func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string
 	if err != nil {
 		return nil, err
 	}
-
 	return priv.Sign(data)
 	/*
 		signature, signErr := priv.Sign(data)
@@ -468,6 +572,16 @@ func (ks *DirKeyStore) GetEncodedPubkey(keyname string, keytype KeyType) (string
 	}
 }
 
+func (ks *DirKeyStore) GetEncodedPubkeyByAlias(keyalias string, keytype KeyType) (string, error) {
+	keyname := ks.AliasToKeyname(keyalias)
+	if keyname == "" {
+		//alias not exist
+		return "", fmt.Errorf("The key alias %s is not exist", keyalias)
+	} else {
+		return ks.GetEncodedPubkey(keyname, keytype)
+	}
+}
+
 func (ks *DirKeyStore) EncryptTo(to []string, data []byte) ([]byte, error) {
 	recipients := []age.Recipient{}
 	for _, key := range to {
@@ -501,6 +615,17 @@ func (ks *DirKeyStore) Decrypt(keyname string, data []byte) ([]byte, error) {
 		return ioutil.ReadAll(r)
 	}
 	return nil, err
+}
+
+func (ks *DirKeyStore) DecryptByAlias(keyalias string, data []byte) ([]byte, error) {
+	keyname := ks.AliasToKeyname(keyalias)
+	if keyname == "" {
+		//alias not exist
+		return nil, fmt.Errorf("The key alias %s is not exist", keyalias)
+	} else {
+		return ks.Decrypt(keyname, data)
+	}
+
 }
 
 func (ks *DirKeyStore) RemoveKey(keyname string, keytype KeyType) (err error) {
