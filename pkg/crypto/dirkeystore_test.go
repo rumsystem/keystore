@@ -244,6 +244,4 @@ func TestMappingKey(t *testing.T) {
 		t.Errorf("SignByKeyAlias %s verify by %s should be failed", aliasname3, mappingkeyname)
 	}
 	t.Log("OK")
-
-	select {}
 }
