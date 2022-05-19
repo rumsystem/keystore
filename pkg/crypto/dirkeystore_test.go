@@ -146,7 +146,7 @@ func TestMappingKey(t *testing.T) {
 		if err != nil {
 			t.Errorf("New encrypt key err : %s", err)
 		}
-		err = nodeoptions.SetSignKeyMap(keyname, newsignid)
+		//err = nodeoptions.SetSignKeyMap(keyname, newsignid)
 
 		t.Logf("new signkey: %s", newsignid)
 		_, err = dirks.NewKey(keyname, Encrypt, password)
@@ -222,8 +222,17 @@ func TestMappingKey(t *testing.T) {
 		t.Errorf("GetEncodedPubkeyByAlias with name %s err: %s", pubkeybyname, getkeyerr)
 	}
 
+	_, getencryptkeyerr := dirks.GetEncodedPubkey(mappingkeyname1, Encrypt)
+	if getencryptkeyerr != nil {
+		t.Errorf("GetEncodedPubkeyByAlias Encrypt with name %s err: %s", pubkeybyname, getkeyerr)
+	}
+
 	if pubkeybyalias != pubkeybyname {
 		t.Errorf("GetEncodedPubkey ByAlias or ByName should be equal.")
+	}
+	aliaslist := dirks.GetAlias(mappingkeyname1)
+	if len(aliaslist) != 1 {
+		t.Errorf("GetAlias of %s err", mappingkeyname1)
 	}
 
 	t.Log("try sign by alias...")

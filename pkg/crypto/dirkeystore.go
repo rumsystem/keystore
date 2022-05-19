@@ -641,6 +641,17 @@ func (ks *DirKeyStore) RemoveKey(keyname string, keytype KeyType) (err error) {
 
 	return nil
 }
+
+func (ks *DirKeyStore) GetAlias(keyname string) []string {
+	aliaslist := []string{}
+	for a, k := range ks.keyaliasmap {
+		if k == keyname {
+			aliaslist = append(aliaslist, a)
+		}
+	}
+	return aliaslist
+}
+
 func (ks *DirKeyStore) ListAll() (keys []*KeyItem, err error) {
 	files, err := ioutil.ReadDir(ks.KeystorePath)
 	if err != nil {
@@ -651,11 +662,13 @@ func (ks *DirKeyStore) ListAll() (keys []*KeyItem, err error) {
 		file := f.Name()
 		if strings.HasPrefix(file, Sign.Prefix()) == true {
 			name := file[len(Sign.Prefix()):]
-			item := &KeyItem{Keyname: name, Type: Sign}
+			alias := ks.GetAlias(name)
+			item := &KeyItem{Keyname: name, Alias: alias, Type: Sign}
 			items = append(items, item)
 		} else if strings.HasPrefix(file, Encrypt.Prefix()) == true {
 			name := file[len(Encrypt.Prefix()):]
-			item := &KeyItem{Keyname: name, Type: Encrypt}
+			alias := ks.GetAlias(name)
+			item := &KeyItem{Keyname: name, Alias: alias, Type: Encrypt}
 			items = append(items, item)
 		}
 	}

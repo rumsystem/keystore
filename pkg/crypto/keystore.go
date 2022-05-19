@@ -50,6 +50,7 @@ func (kt KeyType) NameString(keyname string) string {
 
 type KeyItem struct {
 	Keyname string
+	Alias   []string
 	Type    KeyType
 }
 type Keystore interface {
@@ -76,5 +77,6 @@ type Keystore interface {
 	//must call nodeoptions.DelSignKeyMap(keyname string) to remove the keymap,
 	//afeter call RemoveKey successfully
 	RemoveKey(keyname string, keytype KeyType) (err error)
+	GetAlias(keyname string) []string
 	ListAll() (keys []*KeyItem, err error)
 }
