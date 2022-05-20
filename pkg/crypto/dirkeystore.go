@@ -72,7 +72,7 @@ func loadAliasmap(dir string) (*viper.Viper, map[string]string, error) {
 		return nil, nil, err
 	}
 
-	return v, v.GetStringMapString("SignKeyMap"), nil
+	return v, v.GetStringMapString("aliaskeymap"), nil
 }
 
 func initConfigfile(dir string) (*viper.Viper, error) {
