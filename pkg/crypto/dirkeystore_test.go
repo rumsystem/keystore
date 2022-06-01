@@ -144,11 +144,11 @@ func TestMappingKey(t *testing.T) {
 		keyname := fmt.Sprintf("key%d", i)
 		newsignid, err := dirks.NewKey(keyname, Sign, password)
 		if err != nil {
-			t.Errorf("New encrypt key err : %s", err)
+			t.Errorf("New sign key err : %s", err)
 		}
 		//err = nodeoptions.SetSignKeyMap(keyname, newsignid)
-
 		t.Logf("new signkey: %s", newsignid)
+
 		_, err = dirks.NewKey(keyname, Encrypt, password)
 		if err != nil {
 			t.Errorf("New encrypt key err : %s", err)

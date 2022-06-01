@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,8 @@ import (
 	"filippo.io/age"
 	ethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
@@ -527,6 +530,40 @@ func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string
 
 		return signature, signErr
 	*/
+}
+
+// SignTxByKeyName sign tx with keyname
+func (ks *DirKeyStore) SignTxByKeyName(keyname string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error) {
+	key, err := ks.GetKeyFromUnlocked(Sign.NameString(keyname))
+	if err != nil {
+		return "", err
+	}
+	signk, ok := key.(*ethkeystore.Key)
+	if !ok {
+		return "", fmt.Errorf("The key %s is not a Sign key", keyname)
+	}
+
+	tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), signk.PrivateKey)
+	if err != nil {
+		return "", err
+	}
+
+	signedTxData, err := signedTx.MarshalBinary()
+	if err != nil {
+		return "", err
+	}
+	return hexutil.Encode(signedTxData), nil
+}
+
+// SignTxByKeyAlias sign tx with key alias
+func (ks *DirKeyStore) SignTxByKeyAlias(keyalias string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error) {
+	keyname := ks.AliasToKeyname(keyalias)
+	if keyname == "" {
+		return "", fmt.Errorf("The key alias %s is not exist", keyalias)
+	}
+
+	return ks.SignTxByKeyName(keyname, nonce, to, value, gasLimit, gasPrice, data, chainID)
 }
 
 func (ks *DirKeyStore) VerifySign(data, sig []byte, pubKey p2pcrypto.PubKey) (bool, error) {
