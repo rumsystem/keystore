@@ -63,8 +63,6 @@ type Keystore interface {
 	NewKeyWithDefaultPassword(keyname string, keytype KeyType) (string, error)
 	NewAlias(keyalias, keyname, password string) error
 	UnAlias(keyalias, password string) error
-	CanAliasKey(keyalias string, keyname string, password string) error
-	CanUnAliasKey(keyalias string, password string) error
 	Import(keyname string, encodedkey string, keytype KeyType, password string) (string, error)
 	Sign(data []byte, privKey p2pcrypto.PrivKey) ([]byte, error)
 	VerifySign(data, signature []byte, pubKey p2pcrypto.PubKey) (bool, error)

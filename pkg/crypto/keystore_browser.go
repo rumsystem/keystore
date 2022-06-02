@@ -8,7 +8,11 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"io/ioutil"
+	"math/big"
 	"strings"
 
 	"filippo.io/age"
@@ -378,4 +382,56 @@ func (ks *BrowserKeystore) RemoveKey(keyname string, keytype KeyType) (err error
 
 func (ks *BrowserKeystore) ListAll() (keys []*KeyItem, err error) {
 	return nil, nil
+}
+
+func (ks *BrowserKeystore) DecryptByAlias(keyalias string, data []byte) ([]byte, error) {
+	return nil, fmt.Errorf("key alias not supported by wasm")
+}
+
+func (ks *BrowserKeystore) GetEncodedPubkeyByAlias(keyname string, keytype KeyType) (string, error) {
+	return "", fmt.Errorf("key alias not supported by wasm")
+}
+
+func (ks *BrowserKeystore) NewAlias(keyalias, keyname, password string) error {
+	return fmt.Errorf("key alias not supported by wasm")
+}
+func (ks *BrowserKeystore) GetAlias(keyname string) []string {
+	return nil
+}
+
+func (ks *BrowserKeystore) SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
+	return nil, fmt.Errorf("key alias not supported by wasm")
+
+}
+func (ks *BrowserKeystore) SignTxByKeyAlias(keyalias string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error) {
+	return "", fmt.Errorf("sign trx not supported by wasm")
+}
+
+func (ks *BrowserKeystore) UnAlias(keyalias, password string) error {
+	return fmt.Errorf("sign trx not supported by wasm")
+
+}
+
+// SignTxByKeyName sign tx with keyname
+func (ks *BrowserKeystore) SignTxByKeyName(keyname string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error) {
+	key, err := ks.GetUnlockedKey(Sign.NameString(keyname))
+	if err != nil {
+		return "", err
+	}
+	signk, ok := key.(*ethkeystore.Key)
+	if !ok {
+		return "", fmt.Errorf("The key %s is not a Sign key", keyname)
+	}
+
+	tx := types.NewTransaction(nonce, to, value, gasLimit, gasPrice, data)
+	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), signk.PrivateKey)
+	if err != nil {
+		return "", err
+	}
+
+	signedTxData, err := signedTx.MarshalBinary()
+	if err != nil {
+		return "", err
+	}
+	return hexutil.Encode(signedTxData), nil
 }
