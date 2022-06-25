@@ -494,6 +494,10 @@ func (ks *DirKeyStore) Sign(data []byte, privKey p2pcrypto.PrivKey) ([]byte, err
 	return privKey.Sign(data)
 }
 
+func (ks *DirKeyStore) EthSign(data []byte, privKey *ecdsa.PrivateKey) ([]byte, error) {
+	return ethcrypto.Sign(data, privKey)
+}
+
 func (ks *DirKeyStore) SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
 	keyname := ks.AliasToKeyname(keyalias)
 	if keyname == "" {
@@ -518,18 +522,6 @@ func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string
 		return nil, err
 	}
 	return priv.Sign(data)
-	/*
-		signature, signErr := priv.Sign(data)
-
-		privByte, err := priv.Bytes()
-		if err != nil {
-			return nil, err
-		}
-
-		fmt.Printf("xxx signature: %s \nkeyname: %s \npriv: %s \ndata: %s\n", hex.EncodeToString(signature), keyname, hex.EncodeToString(privByte), hex.EncodeToString(data))
-
-		return signature, signErr
-	*/
 }
 
 // SignTxByKeyName sign tx with keyname
@@ -568,6 +560,11 @@ func (ks *DirKeyStore) SignTxByKeyAlias(keyalias string, nonce uint64, to common
 
 func (ks *DirKeyStore) VerifySign(data, sig []byte, pubKey p2pcrypto.PubKey) (bool, error) {
 	return pubKey.Verify(data, sig)
+}
+
+func (ks *DirKeyStore) EthVerifySign(data, signature []byte, pubKey *ecdsa.PublicKey) bool {
+	sig := signature[:len(signature)-1] // remove recovery id
+	return ethcrypto.VerifySignature(ethcrypto.FromECDSAPub(pubKey), data, sig)
 }
 
 func (ks *DirKeyStore) VerifySignByKeyName(keyname string, data []byte, sig []byte, opts ...string) (bool, error) {

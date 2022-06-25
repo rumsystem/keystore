@@ -65,7 +65,9 @@ type Keystore interface {
 	UnAlias(keyalias, password string) error
 	Import(keyname string, encodedkey string, keytype KeyType, password string) (string, error)
 	Sign(data []byte, privKey p2pcrypto.PrivKey) ([]byte, error)
+	EthSign(data []byte, privKey *ecdsa.PrivateKey) ([]byte, error)
 	VerifySign(data, signature []byte, pubKey p2pcrypto.PubKey) (bool, error)
+	EthVerifySign(data, signature []byte, pubKey *ecdsa.PublicKey) bool
 	SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error)
 	SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error)
 	SignTxByKeyName(keyname string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error)
@@ -75,7 +77,7 @@ type Keystore interface {
 	Decrypt(keyname string, data []byte) ([]byte, error)
 	DecryptByAlias(keyalias string, data []byte) ([]byte, error)
 	GetEncodedPubkey(keyname string, keytype KeyType) (string, error)
-	GetEncodedPubkeyByAlias(keyname string, keytype KeyType) (string, error)
+	GetEncodedPubkeyByAlias(keyalias string, keytype KeyType) (string, error)
 	GetPeerInfo(keyname string) (peerid peer.ID, ethaddr string, err error)
 	//must call nodeoptions.DelSignKeyMap(keyname string) to remove the keymap,
 	//afeter call RemoveKey successfully
