@@ -6,7 +6,7 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"encoding/hex"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -508,6 +508,28 @@ func (ks *DirKeyStore) SignByKeyAlias(keyalias string, data []byte, opts ...stri
 	}
 }
 
+func (ks *DirKeyStore) EthSignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
+	keyname := ks.AliasToKeyname(keyalias)
+	if keyname == "" {
+		//alias not exist
+		return nil, fmt.Errorf("The key alias %s is not exist", keyalias)
+	} else {
+		return ks.EthSignByKeyName(keyname, data, opts...)
+	}
+}
+
+func (ks *DirKeyStore) EthSignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
+	key, err := ks.GetKeyFromUnlocked(Sign.NameString(keyname))
+	if err != nil {
+		return nil, err
+	}
+	signk, ok := key.(*ethkeystore.Key)
+	if ok != true {
+		return nil, fmt.Errorf("The key %s is not a Sign key", keyname)
+	}
+	return ethcrypto.Sign(data, signk.PrivateKey)
+}
+
 func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
 	key, err := ks.GetKeyFromUnlocked(Sign.NameString(keyname))
 	if err != nil {
@@ -592,7 +614,7 @@ func (ks *DirKeyStore) GetEncodedPubkey(keyname string, keytype KeyType) (string
 			if ok != true {
 				return "", fmt.Errorf("The key %s is not a Sign key", keyname)
 			}
-			return hex.EncodeToString(ethcrypto.FromECDSAPub(&signk.PrivateKey.PublicKey)), nil
+			return base64.RawURLEncoding.EncodeToString(ethcrypto.CompressPubkey(&signk.PrivateKey.PublicKey)), nil
 		case Encrypt:
 			encryptk, ok := key.(*age.X25519Identity)
 			if ok != true {

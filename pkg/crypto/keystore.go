@@ -69,7 +69,9 @@ type Keystore interface {
 	VerifySign(data, signature []byte, pubKey p2pcrypto.PubKey) (bool, error)
 	EthVerifySign(data, signature []byte, pubKey *ecdsa.PublicKey) bool
 	SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error)
+	EthSignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error)
 	SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error)
+	EthSignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error)
 	SignTxByKeyName(keyname string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error)
 	SignTxByKeyAlias(keyalias string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error)
 	VerifySignByKeyName(keyname string, data []byte, sig []byte, opts ...string) (bool, error)
