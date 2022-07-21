@@ -36,12 +36,16 @@ func InitBrowserKeystore(password string) (Keystore, error) {
 	bks := BrowserKeystore{}
 	bks.cache = make(map[string]interface{})
 	db := quorumStorage.QSIndexDB{}
-	db.Init("keystore")
+	err := db.Init("keystore")
+	if err != nil {
+		return nil, err
+	}
+
 	bks.store = &db
 	bks.password = password
 	ks = &bks
 
-	_, err := bks.store.Count()
+	_, err = bks.store.Count()
 	if err != nil {
 		return nil, err
 	}

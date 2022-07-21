@@ -9,7 +9,7 @@ require (
 	github.com/btcsuite/btcd v0.22.0-beta
 	github.com/ethereum/go-ethereum v1.10.17
 	github.com/google/uuid v1.3.0
-	github.com/hack-pad/go-indexeddb v0.1.0
+	github.com/hack-pad/go-indexeddb v0.2.0
 	github.com/ipfs/go-log/v2 v2.5.1
 	github.com/libp2p/go-libp2p-core v0.15.1
 	github.com/multiformats/go-multiaddr v0.5.0
