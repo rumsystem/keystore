@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	ethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/rumsystem/keystore/pkg/utils"
 )
 
@@ -28,5 +29,156 @@ func TestKeyType(t *testing.T) {
 				t.Errorf("key type name string error, expect %s, got %s", fmt.Sprintf("%s%s", prefix, s), kt.NameString(s))
 			}
 		}
+	}
+}
+
+type FnGetUnlockedKey func(Keystore, string) (interface{}, error)
+type FnAliasToKeyname func(Keystore, string) string
+
+func FactoryTestEthSign(ks Keystore, password string, fnGetUnlocked FnGetUnlockedKey) func(t *testing.T) {
+	return func(t *testing.T) {
+		key1name := "key1"
+		_, err := ks.NewKey(key1name, Sign, password)
+		keyname := Sign.NameString(key1name)
+		key, err := fnGetUnlocked(ks, keyname)
+		if err != nil {
+			t.Errorf("Get Unlocked key err: %s", err)
+		}
+		ethkey, ok := key.(*ethkeystore.Key)
+		if ok == false {
+			t.Errorf("new key is not a eth sign key: %s", key)
+		}
+
+		testdata := "some random text for testing"
+		testdatahash := Hash([]byte(testdata))
+		sig, err := ks.EthSign(testdatahash, ethkey.PrivateKey)
+		if err != nil {
+			t.Errorf("new key is not a eth sign key: %s", err)
+		}
+		verifyresult := ks.EthVerifySign(testdatahash, sig, &ethkey.PrivateKey.PublicKey)
+		if verifyresult == false {
+			t.Errorf("sig verify failure")
+		}
+	}
+}
+
+func FactoryTestAlias(ks Keystore, password string, fnAliasToKeyname FnAliasToKeyname) func(t *testing.T) {
+	return func(t *testing.T) {
+		var mappingkeyname, mappingkeyname1 string
+		//create 6 keyparis, and mapping the fourth keypair to a new keyname
+		for i := 0; i < 6; i++ {
+			keyname := fmt.Sprintf("key%d", i)
+			newsignid, err := ks.NewKey(keyname, Sign, password)
+			if err != nil {
+				t.Errorf("New sign key err : %s", err)
+			}
+			//err = nodeoptions.SetSignKeyMap(keyname, newsignid)
+			t.Logf("new signkey: %s", newsignid)
+
+			_, err = ks.NewKey(keyname, Encrypt, password)
+			if err != nil {
+				t.Errorf("New encrypt key err : %s", err)
+			}
+			if i == 1 {
+				mappingkeyname = keyname
+			} else if i == 3 {
+				mappingkeyname1 = keyname
+			}
+		}
+
+		t.Log("set keyalias...")
+		aliasname := "a_new_mapping_keyname"
+		err := ks.NewAlias(aliasname, mappingkeyname, password)
+		if err != nil {
+			t.Errorf("new keyalias err...%s", err)
+		}
+
+		aliasname2 := "a_new_mapping_keyname_2"
+		err = ks.NewAlias(aliasname2, mappingkeyname, password)
+		if err != nil {
+			t.Errorf("new keyalias2 err...%s", err)
+		}
+
+		aliasname3 := "a_new_mapping_keyname_3"
+		err = ks.NewAlias(aliasname3, mappingkeyname1, password)
+		if err != nil {
+			t.Errorf("new keyalias3 err...%s", err)
+		}
+
+		keyname := fnAliasToKeyname(ks, aliasname)
+		if keyname == mappingkeyname {
+			t.Logf("alias %s is keyname %s", aliasname, keyname)
+		} else {
+			t.Errorf("get alias %s err, can't find this alias", keyname)
+		}
+
+		err = ks.NewAlias(aliasname, mappingkeyname, password)
+		if err == nil {
+			t.Errorf("repeat new keyalias should be failed")
+		}
+
+		t.Log("try unalias...")
+		err = ks.UnAlias(aliasname, password)
+		if err != nil {
+			t.Errorf("UnAlias err: %s", err)
+		}
+		t.Log("OK")
+		t.Log("try unalias again...")
+
+		err = ks.UnAlias(aliasname, password)
+		if err == nil {
+			t.Errorf("repeat unalias should be failed")
+		}
+		t.Log("OK")
+
+		t.Log("try unalias not exist alias...")
+		err = ks.UnAlias("not_exist_alias", password)
+		if err == nil {
+			t.Errorf("unalias not exist alias should be failed")
+		}
+		t.Log("OK")
+
+		t.Log("try get encoded pubkey by alias...")
+		pubkeybyalias, getkeyerr := ks.GetEncodedPubkeyByAlias(aliasname3, Sign)
+		if getkeyerr != nil {
+			t.Errorf("GetEncodedPubkeyByAlias with alias %s err: %s", aliasname3, getkeyerr)
+		}
+
+		pubkeybyname, getkeyerr := ks.GetEncodedPubkey(mappingkeyname1, Sign)
+		if getkeyerr != nil {
+			t.Errorf("GetEncodedPubkeyByAlias with name %s err: %s", pubkeybyname, getkeyerr)
+		}
+
+		_, getencryptkeyerr := ks.GetEncodedPubkey(mappingkeyname1, Encrypt)
+		if getencryptkeyerr != nil {
+			t.Errorf("GetEncodedPubkeyByAlias Encrypt with name %s err: %s", pubkeybyname, getkeyerr)
+		}
+
+		if pubkeybyalias != pubkeybyname {
+			t.Errorf("GetEncodedPubkey ByAlias or ByName should be equal.")
+		}
+		aliaslist := ks.GetAlias(mappingkeyname1)
+		if len(aliaslist) != 1 {
+			t.Errorf("GetAlias of %s err", mappingkeyname1)
+		}
+
+		t.Log("try sign by alias...")
+		testdata := "some random text for testing"
+		testdatahash := Hash([]byte(testdata))
+		signbyaliasresult, signerr := ks.SignByKeyAlias(aliasname3, testdatahash)
+		if signerr != nil {
+			t.Errorf("SignByKeyAlias with alias %s err: %s", aliasname3, signerr)
+		}
+
+		verifyresult, verifyerr := ks.VerifySignByKeyName(mappingkeyname1, testdatahash, signbyaliasresult)
+		if verifyresult == false {
+			t.Errorf("SignByKeyAlias %s verify err: %s", aliasname3, verifyerr)
+		}
+
+		verifyresult, _ = ks.VerifySignByKeyName(mappingkeyname, testdatahash, signbyaliasresult)
+		if verifyresult == true {
+			t.Errorf("SignByKeyAlias %s verify by %s should be failed", aliasname3, mappingkeyname)
+		}
+		t.Log("OK")
 	}
 }
