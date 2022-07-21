@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	ethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/rumsystem/keystore/pkg/utils"
 )
 
@@ -180,5 +181,88 @@ func FactoryTestAlias(ks Keystore, password string, fnAliasToKeyname FnAliasToKe
 			t.Errorf("SignByKeyAlias %s verify by %s should be failed", aliasname3, mappingkeyname)
 		}
 		t.Log("OK")
+	}
+}
+
+func FactoryTestNewEncryptKey(ks Keystore, password string) func(*testing.T) {
+	return func(t *testing.T) {
+		key1name := "key1"
+		newencryptid, err := ks.NewKey(key1name, Encrypt, password)
+		if err != nil {
+			t.Errorf("New encrypt key err : %s", err)
+		}
+		data := "secret message"
+		encryptdata, err := ks.EncryptTo([]string{newencryptid}, []byte(data))
+		if err != nil {
+			t.Errorf("encrypt data error : %s", err)
+		}
+
+		decrypteddata, err := ks.Decrypt(key1name, encryptdata)
+		if err != nil {
+			t.Errorf("decrypt data error : %s", err)
+		}
+		if string(decrypteddata) != data {
+			t.Errorf("decrypt data is not matched with orginal: %s / %s",
+				string(decrypteddata), data)
+		}
+	}
+}
+
+func FactoryTestImportSignKey(ks Keystore) func(*testing.T) {
+	return func(t *testing.T) {
+		key1name := "key1"
+		key1addr := "0x57c8CBB7966AAC85b32cB6827C0c14A4ae4Af0CE"
+		address, err := ks.Import(key1name, "84f8da8f95760fa3d0b6632ef66b89ea255a85974eccad7642ef12c4265677e0", Sign, "a.Passw0rda")
+		if err != nil {
+			t.Errorf("Get Unlocked key err: %s", err)
+		}
+		if address != key1addr {
+			t.Errorf("key import is not matched: %s / %s ", address, key1addr)
+		}
+	}
+}
+
+func FactoryTestNewSignKey(ks Keystore, password string, fnGetUnlocked FnGetUnlockedKey) func(*testing.T) {
+	return func(t *testing.T) {
+		key1name := "key1"
+		newsignaddr, err := ks.NewKey(key1name, Sign, password)
+		keyname := Sign.NameString(key1name)
+		key, err := fnGetUnlocked(ks, keyname)
+		if err != nil {
+			t.Errorf("Get Unlocked key err: %s", err)
+		}
+		ethkey, ok := key.(*ethkeystore.Key)
+		if ok == false {
+			t.Errorf("new key is not a eth sign key: %s", key)
+		}
+		pubaddress := ethcrypto.PubkeyToAddress(ethkey.PrivateKey.PublicKey).Hex()
+		if pubaddress != newsignaddr {
+			t.Errorf("new key address is not matched %s / %s", pubaddress, newsignaddr)
+		}
+
+		signature, err := ks.SignByKeyName(key1name, []byte("a test string"))
+		if err != nil {
+			t.Errorf("Signnature err: %s", err)
+		}
+
+		//should succ
+		result, err := ks.VerifySignByKeyName(key1name, []byte("a test string"), signature)
+		if err != nil {
+			t.Errorf("Verify signnature err: %s", err)
+		}
+
+		if result == false {
+			t.Errorf("signnature verify should successded but failed.")
+		}
+
+		//should fail
+		result, err = ks.VerifySignByKeyName(key1name, []byte("a new string"), signature)
+		if err != nil {
+			t.Errorf("Verify signnature err: %s", err)
+		}
+
+		if result == true {
+			t.Errorf("signnature verify should failed, but it succeeded.")
+		}
 	}
 }
