@@ -210,7 +210,7 @@ func FactoryTestNewEncryptKey(ks Keystore, password string) func(*testing.T) {
 
 func FactoryTestImportSignKey(ks Keystore) func(*testing.T) {
 	return func(t *testing.T) {
-		key1name := "key1"
+		key1name := "importedkey1"
 		key1addr := "0x57c8CBB7966AAC85b32cB6827C0c14A4ae4Af0CE"
 		address, err := ks.Import(key1name, "84f8da8f95760fa3d0b6632ef66b89ea255a85974eccad7642ef12c4265677e0", Sign, "a.Passw0rda")
 		if err != nil {
