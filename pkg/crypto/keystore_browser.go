@@ -5,15 +5,17 @@ package crypto
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
 	"io/ioutil"
 	"math/big"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"filippo.io/age"
 	ethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -34,12 +36,16 @@ func InitBrowserKeystore(password string) (Keystore, error) {
 	bks := BrowserKeystore{}
 	bks.cache = make(map[string]interface{})
 	db := quorumStorage.QSIndexDB{}
-	db.Init("keystore")
+	err := db.Init("keystore")
+	if err != nil {
+		return nil, err
+	}
+
 	bks.store = &db
 	bks.password = password
 	ks = &bks
 
-	_, err := bks.store.Count()
+	_, err = bks.store.Count()
 	if err != nil {
 		return nil, err
 	}
@@ -188,8 +194,21 @@ func (ks *BrowserKeystore) Sign(data []byte, privKey p2pcrypto.PrivKey) ([]byte,
 	return privKey.Sign(data)
 }
 
+func (ks *BrowserKeystore) SignByKeyAlias(alias string, data []byte, opts ...string) ([]byte, error) {
+	keyname, err := ks.GetKeynameFromAlias(alias)
+	if err != nil {
+		return nil, err
+	}
+	return ks.SignByKeyName(keyname, data, opts...)
+}
+
 func (ks *BrowserKeystore) VerifySign(data, sig []byte, pubKey p2pcrypto.PubKey) (bool, error) {
 	return pubKey.Verify(data, sig)
+}
+
+func (ks *BrowserKeystore) EthVerifySign(data, signature []byte, pubKey *ecdsa.PublicKey) bool {
+	sig := signature[:len(signature)-1] // remove recovery id
+	return ethcrypto.VerifySignature(ethcrypto.FromECDSAPub(pubKey), data, sig)
 }
 
 func (ks *BrowserKeystore) SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
@@ -304,6 +323,89 @@ func (ks *BrowserKeystore) GetPeerInfo(keyname string) (peerid peer.ID, ethaddr 
 	return peerid, address, nil
 }
 
+// migrate to eth version
+func (ks *BrowserKeystore) EthSign(data []byte, privKey *ecdsa.PrivateKey) ([]byte, error) {
+	return ethcrypto.Sign(data, privKey)
+}
+
+func (ks *BrowserKeystore) EthSignByKeyAlias(alias string, data []byte, opts ...string) ([]byte, error) {
+	keyname, err := ks.GetKeynameFromAlias(alias)
+	if err != nil {
+		return nil, err
+	}
+	return ks.EthSignByKeyName(keyname, data, opts...)
+}
+
+func (ks *BrowserKeystore) EthSignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
+	key, err := ks.GetUnlockedKey(Sign.NameString(keyname))
+	if err != nil {
+		return nil, err
+	}
+	signk, ok := key.(*ethkeystore.Key)
+	if ok != true {
+		return nil, fmt.Errorf("The key %s is not a Sign key", keyname)
+	}
+	return ethcrypto.Sign(data, signk.PrivateKey)
+}
+
+// alias
+const ALIAS_PREFIX = "ALIAS"
+
+func getAliasKeyName(alias string) string {
+	return fmt.Sprintf("%s_%s", ALIAS_PREFIX, alias)
+}
+
+func getAliasFromKey(aliasKey string) string {
+	return strings.ReplaceAll(aliasKey, fmt.Sprintf("%s_", ALIAS_PREFIX), "")
+}
+
+func (ks *BrowserKeystore) GetKeynameFromAlias(alias string) (string, error) {
+	v, err := ks.store.Get([]byte(getAliasKeyName(alias)))
+	if err != nil {
+		return "", err
+	}
+	return string(v), nil
+}
+
+func (ks *BrowserKeystore) NewAlias(alias, keyname, password string) error {
+	// password not used yet
+	aliasKey := getAliasKeyName(alias)
+	isExist, err := ks.store.IsExist([]byte(aliasKey))
+	if err != nil {
+		return err
+	}
+	if isExist {
+		return errors.New("alias exists")
+	}
+	return ks.store.Set([]byte(aliasKey), []byte(keyname))
+}
+
+func (ks *BrowserKeystore) UnAlias(alias, password string) error {
+	aliasKey := getAliasKeyName(alias)
+	isExist, err := ks.store.IsExist([]byte(aliasKey))
+	if err != nil {
+		return err
+	}
+	if !isExist {
+		return errors.New("alias not exists")
+	}
+	return ks.store.Delete([]byte(aliasKey))
+}
+
+func (ks *BrowserKeystore) GetAlias(keyname string) []string {
+	res := []string{}
+	ks.store.PrefixForeach([]byte(ALIAS_PREFIX), func(k []byte, v []byte, err error) error {
+		if err != nil {
+			return err
+		}
+		if string(v) == keyname {
+			res = append(res, getAliasFromKey(string(k)))
+		}
+		return nil
+	})
+	return res
+}
+
 // =============================== helpers
 func (ks *BrowserKeystore) StoreEncryptKey(k string, key *age.X25519Identity) error {
 	r, err := age.NewScryptRecipient(ks.password)
@@ -373,43 +475,48 @@ func (ks *BrowserKeystore) GetUnlockedKey(keyname string) (interface{}, error) {
 	return nil, fmt.Errorf("key %s not exist or not be unlocked", keyname)
 }
 
-func (ks *BrowserKeystore) RemoveKeyPairByKeyName(keyname string, keytype KeyType) (err error) {
-	return nil
-}
 func (ks *BrowserKeystore) RemoveKey(keyname string, keytype KeyType) (err error) {
-	return nil
+	return ks.store.Delete([]byte(keyname))
 }
 
 func (ks *BrowserKeystore) ListAll() (keys []*KeyItem, err error) {
-	return nil, nil
+	items := []*KeyItem{}
+	ks.store.Foreach(func(k []byte, v []byte, err error) error {
+		key := string(k)
+		if strings.HasPrefix(key, ALIAS_PREFIX) {
+			return nil
+		}
+		if strings.HasPrefix(key, Sign.Prefix()) {
+			name := key[len(Sign.Prefix()):]
+			alias := ks.GetAlias(name)
+			item := &KeyItem{Keyname: name, Alias: alias, Type: Sign}
+			items = append(items, item)
+		} else if strings.HasPrefix(key, Encrypt.Prefix()) {
+			name := key[len(Encrypt.Prefix()):]
+			alias := ks.GetAlias(name)
+			item := &KeyItem{Keyname: name, Alias: alias, Type: Encrypt}
+			items = append(items, item)
+		}
+
+		return nil
+	})
+	return items, nil
 }
 
-func (ks *BrowserKeystore) DecryptByAlias(keyalias string, data []byte) ([]byte, error) {
-	return nil, fmt.Errorf("key alias not supported by wasm")
+func (ks *BrowserKeystore) DecryptByAlias(alias string, data []byte) ([]byte, error) {
+	keyname, err := ks.GetKeynameFromAlias(alias)
+	if err != nil {
+		return nil, err
+	}
+	return ks.Decrypt(keyname, data)
 }
 
-func (ks *BrowserKeystore) GetEncodedPubkeyByAlias(keyname string, keytype KeyType) (string, error) {
-	return "", fmt.Errorf("key alias not supported by wasm")
-}
-
-func (ks *BrowserKeystore) NewAlias(keyalias, keyname, password string) error {
-	return fmt.Errorf("key alias not supported by wasm")
-}
-func (ks *BrowserKeystore) GetAlias(keyname string) []string {
-	return nil
-}
-
-func (ks *BrowserKeystore) SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
-	return nil, fmt.Errorf("key alias not supported by wasm")
-
-}
-func (ks *BrowserKeystore) SignTxByKeyAlias(keyalias string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error) {
-	return "", fmt.Errorf("sign trx not supported by wasm")
-}
-
-func (ks *BrowserKeystore) UnAlias(keyalias, password string) error {
-	return fmt.Errorf("sign trx not supported by wasm")
-
+func (ks *BrowserKeystore) GetEncodedPubkeyByAlias(alias string, keytype KeyType) (string, error) {
+	keyname, err := ks.GetKeynameFromAlias(alias)
+	if err != nil {
+		return "", err
+	}
+	return ks.GetEncodedPubkey(keyname, keytype)
 }
 
 // SignTxByKeyName sign tx with keyname
@@ -434,4 +541,12 @@ func (ks *BrowserKeystore) SignTxByKeyName(keyname string, nonce uint64, to comm
 		return "", err
 	}
 	return hexutil.Encode(signedTxData), nil
+}
+
+func (ks *BrowserKeystore) SignTxByKeyAlias(alias string, nonce uint64, to common.Address, value *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte, chainID *big.Int) (string, error) {
+	keyname, err := ks.GetKeynameFromAlias(alias)
+	if err != nil {
+		return "", err
+	}
+	return ks.SignTxByKeyName(keyname, nonce, to, value, gasLimit, gasPrice, data, chainID)
 }

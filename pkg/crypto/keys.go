@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	//"crypto/ecdsa"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/btcsuite/btcd/btcec"
@@ -67,6 +67,15 @@ func SignKeytoPeerKeys(key *ethkeystore.Key) (*Keys, error) {
 func Libp2pPubkeyToEthaddr(pubkey string) (string, error) {
 	p2ppubkeybytes, err := p2pcrypto.ConfigDecodeKey(pubkey)
 	if err != nil {
+		//try eth raw url encoding base64 key
+		bytespubkey, err := base64.RawURLEncoding.DecodeString(pubkey)
+		if err == nil {
+			ethpubkey, err := ethcrypto.DecompressPubkey(bytespubkey)
+			if err == nil {
+				return ethcrypto.PubkeyToAddress(*ethpubkey).Hex(), nil
+			}
+		}
+
 		return "", err
 	}
 	p2ppubkey, err := p2pcrypto.UnmarshalPublicKey(p2ppubkeybytes)
