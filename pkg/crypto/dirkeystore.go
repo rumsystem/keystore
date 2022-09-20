@@ -518,7 +518,7 @@ func (ks *DirKeyStore) EthSignByKeyAlias(keyalias string, data []byte, opts ...s
 	}
 }
 
-func (ks *DirKeyStore) EthSignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
+func (ks *DirKeyStore) EthSignByKeyName(keyname string, digestHash []byte, opts ...string) ([]byte, error) {
 	key, err := ks.GetKeyFromUnlocked(Sign.NameString(keyname))
 	if err != nil {
 		return nil, err
@@ -527,8 +527,7 @@ func (ks *DirKeyStore) EthSignByKeyName(keyname string, data []byte, opts ...str
 	if ok != true {
 		return nil, fmt.Errorf("The key %s is not a Sign key", keyname)
 	}
-	hash := ethcrypto.Keccak256Hash(data)
-	return ethcrypto.Sign(hash.Bytes(), signk.PrivateKey)
+	return ethcrypto.Sign(digestHash, signk.PrivateKey)
 }
 
 func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
