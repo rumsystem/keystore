@@ -460,7 +460,7 @@ func (ks *DirKeyStore) UnAlias(keyalias, password string) error {
 	}
 }
 
-//check the keyname of an alias, return keyname
+// check the keyname of an alias, return keyname
 func (ks *DirKeyStore) AliasToKeyname(keyalias string) string {
 	k, ok := ks.keyaliasmap[keyalias]
 	if ok == true {
@@ -527,7 +527,8 @@ func (ks *DirKeyStore) EthSignByKeyName(keyname string, data []byte, opts ...str
 	if ok != true {
 		return nil, fmt.Errorf("The key %s is not a Sign key", keyname)
 	}
-	return ethcrypto.Sign(data, signk.PrivateKey)
+	hash := ethcrypto.Keccak256Hash(data)
+	return ethcrypto.Sign(hash.Bytes(), signk.PrivateKey)
 }
 
 func (ks *DirKeyStore) SignByKeyName(keyname string, data []byte, opts ...string) ([]byte, error) {
@@ -582,6 +583,28 @@ func (ks *DirKeyStore) SignTxByKeyAlias(keyalias string, nonce uint64, to common
 
 func (ks *DirKeyStore) VerifySign(data, sig []byte, pubKey p2pcrypto.PubKey) (bool, error) {
 	return pubKey.Verify(data, sig)
+}
+
+func (ks *DirKeyStore) EthVerifyByKeyName(keyname string, data, signature []byte) (bool, error) {
+	key, err := ks.GetKeyFromUnlocked(Sign.NameString(keyname))
+	if err != nil {
+		return false, err
+	}
+	signk, ok := key.(*ethkeystore.Key)
+	if ok != true {
+		return false, fmt.Errorf("The key %s is not a Sign key", keyname)
+	}
+	publicKey := signk.PrivateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return false, fmt.Errorf("error casting public key to ECDSA")
+	}
+
+	publicKeyBytes := ethcrypto.FromECDSAPub(publicKeyECDSA)
+	signatureNoRecoverID := signature[:len(signature)-1] // remove recovery id
+	hash := ethcrypto.Keccak256Hash(data)
+	verified := ethcrypto.VerifySignature(publicKeyBytes, hash.Bytes(), signatureNoRecoverID)
+	return verified, nil
 }
 
 func (ks *DirKeyStore) EthVerifySign(data, signature []byte, pubKey *ecdsa.PublicKey) bool {
