@@ -63,6 +63,39 @@ func FactoryTestEthSign(ks Keystore, password string, fnGetUnlocked FnGetUnlocke
 	}
 }
 
+func FactoryTestEthSignByName(ks *DirKeyStore, password string) func(t *testing.T) {
+	return func(t *testing.T) {
+		keyname := "key1"
+		_, err := ks.NewKey(keyname, Sign, password)
+		// keyname := Sign.NameString(key1name)
+
+		testdata := "some random text for testing"
+		testdatahash := Hash([]byte(testdata))
+		sig, err := ks.EthSignByKeyName(keyname, testdatahash)
+		if err != nil {
+			t.Errorf("eth sign by keyname failed: %s", err)
+		}
+		verifyresult, err := ks.EthVerifyByKeyName(keyname, testdatahash, sig)
+		if err != nil {
+			t.Errorf("eth verify signature by keyname failed: %s", err)
+		}
+		if verifyresult == false {
+			t.Errorf("eth verify signature by keyname failure")
+		}
+
+		// verifyresult is false
+		testdata = "new random text for testing"
+		testdatahash = Hash([]byte(testdata))
+		verifyresult, err = ks.EthVerifyByKeyName(keyname, testdatahash, sig)
+		if err != nil {
+			t.Errorf("eth verify signature by keyname failed: %s", err)
+		}
+		if verifyresult == true {
+			t.Errorf("eth verify signature by keyname failure")
+		}
+	}
+}
+
 func FactoryTestAlias(ks Keystore, password string, fnAliasToKeyname FnAliasToKeyname) func(t *testing.T) {
 	return func(t *testing.T) {
 		var mappingkeyname, mappingkeyname1 string

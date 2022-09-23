@@ -494,8 +494,8 @@ func (ks *DirKeyStore) Sign(data []byte, privKey p2pcrypto.PrivKey) ([]byte, err
 	return privKey.Sign(data)
 }
 
-func (ks *DirKeyStore) EthSign(data []byte, privKey *ecdsa.PrivateKey) ([]byte, error) {
-	return ethcrypto.Sign(data, privKey)
+func (ks *DirKeyStore) EthSign(digestHash []byte, privKey *ecdsa.PrivateKey) ([]byte, error) {
+	return ethcrypto.Sign(digestHash, privKey)
 }
 
 func (ks *DirKeyStore) SignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
@@ -508,13 +508,13 @@ func (ks *DirKeyStore) SignByKeyAlias(keyalias string, data []byte, opts ...stri
 	}
 }
 
-func (ks *DirKeyStore) EthSignByKeyAlias(keyalias string, data []byte, opts ...string) ([]byte, error) {
+func (ks *DirKeyStore) EthSignByKeyAlias(keyalias string, digestHash []byte, opts ...string) ([]byte, error) {
 	keyname := ks.AliasToKeyname(keyalias)
 	if keyname == "" {
 		//alias not exist
 		return nil, fmt.Errorf("The key alias %s is not exist", keyalias)
 	} else {
-		return ks.EthSignByKeyName(keyname, data, opts...)
+		return ks.EthSignByKeyName(keyname, digestHash, opts...)
 	}
 }
 
@@ -584,7 +584,7 @@ func (ks *DirKeyStore) VerifySign(data, sig []byte, pubKey p2pcrypto.PubKey) (bo
 	return pubKey.Verify(data, sig)
 }
 
-func (ks *DirKeyStore) EthVerifyByKeyName(keyname string, data, signature []byte) (bool, error) {
+func (ks *DirKeyStore) EthVerifyByKeyName(keyname string, digestHash, signature []byte) (bool, error) {
 	key, err := ks.GetKeyFromUnlocked(Sign.NameString(keyname))
 	if err != nil {
 		return false, err
@@ -599,16 +599,13 @@ func (ks *DirKeyStore) EthVerifyByKeyName(keyname string, data, signature []byte
 		return false, fmt.Errorf("error casting public key to ECDSA")
 	}
 
-	publicKeyBytes := ethcrypto.FromECDSAPub(publicKeyECDSA)
-	signatureNoRecoverID := signature[:len(signature)-1] // remove recovery id
-	hash := ethcrypto.Keccak256Hash(data)
-	verified := ethcrypto.VerifySignature(publicKeyBytes, hash.Bytes(), signatureNoRecoverID)
+	verified := ks.EthVerifySign(digestHash, signature, publicKeyECDSA)
 	return verified, nil
 }
 
-func (ks *DirKeyStore) EthVerifySign(data, signature []byte, pubKey *ecdsa.PublicKey) bool {
+func (ks *DirKeyStore) EthVerifySign(digestHash, signature []byte, pubKey *ecdsa.PublicKey) bool {
 	sig := signature[:len(signature)-1] // remove recovery id
-	return ethcrypto.VerifySignature(ethcrypto.FromECDSAPub(pubKey), data, sig)
+	return ethcrypto.VerifySignature(ethcrypto.FromECDSAPub(pubKey), digestHash, sig)
 }
 
 func (ks *DirKeyStore) VerifySignByKeyName(keyname string, data []byte, sig []byte, opts ...string) (bool, error) {
