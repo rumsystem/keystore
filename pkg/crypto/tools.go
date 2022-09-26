@@ -4,9 +4,10 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"github.com/btcsuite/btcd/btcec"
+
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 )
 
 // Hash return the SHA256 checksum of the data
@@ -31,8 +32,8 @@ func Libp2pPubkeyToEthBase64(libp2ppubkey string) (string, error) {
 
 	secp256k1pubkey, ok := pubkey.(*p2pcrypto.Secp256k1PublicKey)
 	if ok == true {
-		btcecpubkey := (*btcec.PublicKey)(secp256k1pubkey)
-		return base64.RawURLEncoding.EncodeToString(ethcrypto.CompressPubkey(btcecpubkey.ToECDSA())), nil
+		spubkey := (*secp256k1.PublicKey)(secp256k1pubkey)
+		return base64.RawURLEncoding.EncodeToString(ethcrypto.CompressPubkey(spubkey.ToECDSA())), nil
 	}
 	return libp2ppubkey, errors.New("convert to Secp256k1PublicKey failed")
 }

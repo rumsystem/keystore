@@ -11,7 +11,6 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hack-pad/go-indexeddb v0.2.0
 	github.com/ipfs/go-log/v2 v2.5.1
-	github.com/libp2p/go-libp2p-core v0.15.1
 	github.com/multiformats/go-multiaddr v0.5.0
 	github.com/spf13/viper v1.10.1
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211

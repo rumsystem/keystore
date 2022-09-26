@@ -4,16 +4,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/btcsuite/btcd/btcec"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"filippo.io/age"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	ethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/rumsystem/keystore/pkg/logging"
 )
 
@@ -85,8 +85,8 @@ func Libp2pPubkeyToEthaddr(pubkey string) (string, error) {
 
 	secp256k1pubkey, ok := p2ppubkey.(*p2pcrypto.Secp256k1PublicKey)
 	if ok == true {
-		btcecpubkey := (*btcec.PublicKey)(secp256k1pubkey)
-		return ethcrypto.PubkeyToAddress(*btcecpubkey.ToECDSA()).Hex(), nil
+		pubkey := (*secp256k1.PublicKey)(secp256k1pubkey)
+		return ethcrypto.PubkeyToAddress(*pubkey.ToECDSA()).Hex(), nil
 	}
 	return "", errors.New("input pubkey is not a Secp256k1PublicKey")
 }

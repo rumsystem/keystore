@@ -21,8 +21,8 @@ import (
 	ethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	quorumStorage "github.com/rumsystem/keystore/pkg/storage"
 )
 

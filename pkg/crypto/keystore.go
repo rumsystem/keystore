@@ -6,8 +6,8 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	p2pcrypto "github.com/libp2p/go-libp2p-core/crypto"
-	peer "github.com/libp2p/go-libp2p-core/peer"
+	p2pcrypto "github.com/libp2p/go-libp2p/core/crypto"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 )
 
 type KeyType int
